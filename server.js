@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 5000;
+const jwt = require("jsonwebtoken"); 
 
 // Connect to SQLite database
 const db = new sqlite3.Database("./data.db", (err) => {
@@ -15,10 +16,30 @@ const db = new sqlite3.Database("./data.db", (err) => {
 });
 
 app.use(express.json());
-app.use(cors()); // Enable CORS
+app.use(cors());
+
+const JWT_SECRET = "your_secret_key";
 
 // Create users table if it doesn't exist
 // db.run(`Delete from cart_items`);
+
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: Missing token" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decodedToken) => {
+    if (err) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+
+    // Attach the decoded user information to the request object
+    req.user = decodedToken;
+    next();
+  });
+};
 
 // Create users table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -99,9 +120,16 @@ app.post("/login", async (req, res) => {
           return res.status(401).json({ error: "Invalid credentials" });
         }
 
+        const token = jwt.sign(
+          { userId: user.id, email: user.email },
+          JWT_SECRET,
+          { expiresIn: "1h" } // Token expires in 1 hour
+        );
+
         // Return success response
         res.json({
           message: "Login successful",
+          token,
           user: {
             id: user.id,
             name: user.name,
@@ -126,8 +154,41 @@ db.run(`CREATE TABLE IF NOT EXISTS products (
   imageLink TEXT
 )`);
 
+app.post("/getUserData", verifyToken, (req,res)=>{
+  try {
+    // Extract user ID from the decoded token payload
+    const userId = req.user.userId;
+
+    // Fetch user details from the database based on userId
+    db.get("SELECT * FROM users WHERE id = ?", [userId], (err, user) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Remove sensitive information like password before sending response
+      const userData = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        // Include other user details as needed
+      };
+
+      // Respond with the user details
+      res.json({ user: userData });
+    });
+  } catch (error) {
+    console.error("Error fetching user data:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+})
 // Create product endpoint
-app.post("/products", async (req, res) => {
+app.post("/products", (req, res) => {
   try {
     db.all("SELECT * FROM products", (err, rows) => {
       if (err) {
@@ -150,7 +211,7 @@ app.post("/products", async (req, res) => {
   }
 });
 
-app.post("/getProduct", async (req, res) => {
+app.post("/getProduct",(req, res) => {
   try {
     const { product_id } = req.body;
 
@@ -174,7 +235,7 @@ app.post("/getProduct", async (req, res) => {
   }
 });
 
-app.post("/addCartItem", (req, res) => {
+app.post("/addCartItem",(req, res) => {
   const { user_id, product_id } = req.body;
   // Check if entry exists for user_id and product_id
   db.get(
@@ -317,7 +378,7 @@ app.post("/removeCartItem", (req, res) => {
 });
 
 
-app.post("/getCart", async (req, res) => {
+app.post("/getCart",   (req, res) => {
   try {
     const { user_id } = req.body;
 
@@ -344,8 +405,6 @@ app.post("/getCart", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
