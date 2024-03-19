@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 5000;
-const jwt = require("jsonwebtoken"); 
+const jwt = require("jsonwebtoken");
 
 // Connect to SQLite database
 const db = new sqlite3.Database("./data.db", (err) => {
@@ -154,7 +154,7 @@ db.run(`CREATE TABLE IF NOT EXISTS products (
   imageLink TEXT
 )`);
 
-app.post("/getUserData", verifyToken, (req,res)=>{
+app.post("/getUserData", verifyToken, (req, res) => {
   try {
     // Extract user ID from the decoded token payload
     const userId = req.user.userId;
@@ -186,7 +186,8 @@ app.post("/getUserData", verifyToken, (req,res)=>{
     console.error("Error fetching user data:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
-})
+});
+
 // Create product endpoint
 app.post("/products", (req, res) => {
   try {
@@ -204,14 +205,13 @@ app.post("/products", (req, res) => {
 
       res.json({ products: rows });
     });
-
   } catch (error) {
     console.error("Product creation error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.post("/getProduct",(req, res) => {
+app.post("/getProduct", (req, res) => {
   try {
     const { product_id } = req.body;
 
@@ -235,7 +235,7 @@ app.post("/getProduct",(req, res) => {
   }
 });
 
-app.post("/addCartItem",(req, res) => {
+app.post("/addCartItem", (req, res) => {
   const { user_id, product_id } = req.body;
   // Check if entry exists for user_id and product_id
   db.get(
@@ -269,12 +269,10 @@ app.post("/addCartItem",(req, res) => {
                 product_id,
                 newQuantity
               );
-              res
-                .status(200)
-                .json({
-                  message: "Item quantity updated in cart successfully",
-                  cart_item_id: row.id,
-                });
+              res.status(200).json({
+                message: "Item quantity updated in cart successfully",
+                cart_item_id: row.id,
+              });
             }
           }
         );
@@ -289,12 +287,10 @@ app.post("/addCartItem",(req, res) => {
               res.status(500).json({ error: "Failed to add item to cart" });
             } else {
               console.log("Added item to cart:", user_id, product_id);
-              res
-                .status(200)
-                .json({
-                  message: "Item added to cart successfully",
-                  cart_item_id: this.lastID,
-                });
+              res.status(200).json({
+                message: "Item added to cart successfully",
+                cart_item_id: this.lastID,
+              });
             }
           }
         );
@@ -369,16 +365,13 @@ app.post("/removeCartItem", (req, res) => {
         }
       } else {
         // Entry doesn't exist, return error
-        res
-          .status(404)
-          .json({ error: "Item not found in the user's cart" });
+        res.status(404).json({ error: "Item not found in the user's cart" });
       }
     }
   );
 });
 
-
-app.post("/getCart",   (req, res) => {
+app.post("/getCart", (req, res) => {
   try {
     const { user_id } = req.body;
 
@@ -394,7 +387,7 @@ app.post("/getCart",   (req, res) => {
         // Check if any products were retrieved
         if (!rows || rows.length === 0) {
           console.log("No products found");
-          res.json({ products: [] }); 
+          res.json({ products: [] });
           return;
         }
         res.json({ products: rows });
